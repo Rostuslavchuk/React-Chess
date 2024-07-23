@@ -1,0 +1,765 @@
+create chess 
+початок ми створимо react-app 
+за допомогою create-react-app
+
+точніше 
+npx create-react-app dirName --template typescript 
+
+створюємо дошку 
+взагалі ми створюємо проекта так шоб віддліти класи 
+від  react components
+
+в нас є 2 головних файли з класами
+це Board і Сell 
+також 2 компоненти це BoardComponent i CellComponent 
+ми використовуємо react 
+
+почнемо з малювання доски 
+ми створюємо клас Board 
+
+export class Board {
+    public cells: Cell[][] = []; створюємо двовимірний масив з типом Cell
+
+    public initCells(){
+        for (let i = 0; i < 8; i++) {
+            const row: Cell[] = []; тут ми створюєм row з обєктами Cell тобто його instance
+
+            for (let j = 0; j < 8; j++) {
+                if((i + j) % 2 !== 0) - це непарні{ тут ми заповнємо row обєктами з параметрами(Board тобто сама дошка, кординати y x, колір і фігура яка поки є null)
+                    row.push(new Cell(this, j, i, Colors.BLACK ,null)) // black 
+                }
+                else{
+                    row.push(new Cell(this, j, i, Colors.WHITE ,null)) // white
+                }
+            }
+            this.cells.push(row); тут ми додаємо рядок з обєктами 
+        }
+    }
+}
+
+також треба звернути увагу ми тут робимо звязування бо Board знає про Cell
+
+тепер розглянемо Cell 
+тут ми описуємо всі параметри Cell 
+
+import { Colors } from "./Colors";
+import { Figure } from "./figures/Figure";
+import { Board } from "./Board";
+
+export class Cell {
+    readonly x: number; 
+    readonly y: number;
+    readonly color: Colors;
+    figure: Figure | null; // тобото може бути фігура або ні  (спочатку ми вказуємо шо фігура буде null)
+    board: Board;
+    
+    available: boolean;
+    id: number; для react render
+
+    constructor(board: Board, x: number, y: number, color: Colors, figure: Figure | null){
+        this.board = board;
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.figure = figure;
+
+        this.available = false;
+        this.id = Math.random();
+    }
+}
+
+далі робота з компонентами App BoardComponent CellComponent
+
+App 
+тут ми отримуємо BoardComponent 
+а перед тим ми створюємо useState для отримання new Board()
+коли оновлюємо сайт тобто виклик функції в useEffect()
+
+функція restart() яка створює новий instnce для Board 
+і викликає функцію рендеру Cells тобто цей двависірний масив 
+
+і сетаємо його в useState() 
+
+далі цей useState ми передаємо в компонент  BoardComponent
+також ми описуємо ці парметри через interface
+
+BoardComponent
+тут ми беремо і проходимося через map по двовимірному масиві 
+і також робимо це шераз для row 
+і примітка ми використовуємо React.Fragment замість <> 
+бо в React.Fragment можна використовувати key 
+далі ми проходися по row і передаємо обєкт з row в 
+CellComponent
+
+CellComponent тут ми описуємо обєкт тобто шо це є Cell 
+і для classname ми ствимо такі класи 
+className={["cell", cell.color].join(' ')}
+тобто ствоимо колір 
+
+також колір black white є винесені в інший файл і вони є в enum 
+і для них створені класи в css з background-color
+
+далі ми перехадимо до Figure 
+якшо коротко то ми для кожної фігури створемо клас наслідник 
+від Figure а сам клас Figure є abstract і також ми будемо передавати потірбні методи для наслідників 
+
+Figure
+
+import { Colors } from "../Colors"
+import logo from "../../assets/black-bishop.png"; це ми беремо шоб отримати тип для logo -> typeof logo
+import { Cell } from "../Cell";
+
+export enum FigureName{ імена для кожної фігури
+    FIGURE = 'Фігура',
+    KING = 'Король',
+    KNIGHT = 'Кінь',
+    PAWN = 'Пішка',
+    QUEEN = 'Королева',
+    ROOK = 'Тура',
+    BISHOP = 'Слон'
+} 
+
+export abstract class Figure {
+    public color: Colors; колір 
+    public logo: typeof logo | null; саме лого можна вважати шо поки воно null 
+    public cell: Cell; - клітинка 
+    public name: FigureName; імя 
+    public id: number; і для react render 
+
+    constructor(color: Colors, cell: Cell) { по факут ми наслідуємо ці і використовувати їх будемо для малювання фігур колір і позиція але перезатирати будемо logo і name 
+        this.color = color;
+        this.cell = cell;
+        this.cell.figure = this; // fluent interface pattern це для кожного наслідуваного також буде тобто ми вказуємо для отримання figure обєкту 
+
+        this.logo = null;
+        this.id = Math.random();
+        this.name = FigureName.FIGURE;
+    }
+
+    public abstract canMove(target: Cell): boolean; це для майбутнього 
+
+    public abstract moveFigure(target: Cell): void;
+}
+
+наслідувані фігури 
+
+import { Figure } from "./Figure";
+import { Cell } from "../Cell";
+import { Colors } from "../Colors";
+import { FigureName } from "./Figure";
+
+тут ми беремо з assets чорного і білого короля 
+import blackLogo from '../../assets/black-king.png';
+import whiteLogo from '../../assets/white-king.png';
+
+export class King extends Figure{
+
+    constructor(color: Colors, cell: Cell) {
+        super(color, cell)
+        this.logo = color === Colors.BLACK ? blackLogo : whiteLogo;  ми будемо отримувати колір з constructor 
+        this.name = FigureName.KING; і стаимо імя 
+    }
+    canMove(target: Cell): boolean
+    {
+        return true
+    }
+    moveFigure(target: Cell): void{
+
+    }
+}
+тобто так ми робимо для кожного
+і також нам потрібно відображати їх то ми це можемо зробити в CellComponent
+
+тобто тим шо ми використовуємо fluentInterface ми можемо зробити так 
+
+import React, { FC } from "react";
+import { Cell } from "../Modules/Cell";
+
+interface CellProp{
+    cell: Cell,
+}
+
+const CellComponent:FC<CellProp> = ({cell, click}) => {
+    return (
+        <div onClick={() => click(cell)} className={["cell", cell.color ].join(' ')}>
+            {cell.figure?.logo && <img src={cell.figure.logo}></img>} поки шо нам тільки тут важливо якшо є logo томи його вивиодимо в img і також створили клас для стилів шоб зменшити фігуру
+        </div>
+    )
+}
+export default CellComponent;
+
+далі ми реалізуємо це в Board ствимо позиції і кольори 
+
+public getCell(y: number, x: number){
+        return this.cells[y][x]; беремо з масиву клітинку 
+    }
+    public setPawn(){
+        for (let i = 0; i <= 7; i++) {
+            new Pawn(Colors.BLACK, this.getCell(1, i))
+            new Pawn(Colors.WHITE, this.getCell(6, i))
+        }
+    }
+    public setKings(){
+        new King(Colors.BLACK, this.getCell(0, 4))
+        new King(Colors.WHITE, this.getCell(7, 4))
+    }
+    public setQueens(){
+        new Queen(Colors.BLACK, this.getCell(0, 3))
+        new Queen(Colors.WHITE, this.getCell(7, 3))
+    }
+    public setBishops(){
+        new Bishop(Colors.BLACK, this.getCell(0, 2))
+        new Bishop(Colors.BLACK, this.getCell(0, 5))
+
+        new Bishop(Colors.WHITE, this.getCell(7, 2))
+        new Bishop(Colors.WHITE, this.getCell(7, 5))
+    }
+    public setRooks(){
+        new Rook(Colors.BLACK, this.getCell(0, 0))
+        new Rook(Colors.BLACK, this.getCell(0, 7))
+
+        new Rook(Colors.WHITE, this.getCell(7, 0))
+        new Rook(Colors.WHITE, this.getCell(7, 7))
+    }
+    public setKnights(){
+        new Knight(Colors.BLACK, this.getCell(0, 1))
+        new Knight(Colors.BLACK, this.getCell(0, 6))
+
+        new Knight(Colors.WHITE, this.getCell(7, 1))
+        new Knight(Colors.WHITE, this.getCell(7, 6))
+    }
+    public initFigures(){ тут ми сетаємо всі потрібні фігури на позиції 
+        this.setKings();
+        this.setPawn();
+        this.setQueens();
+        this.setBishops();
+        this.setRooks();
+        this.setKnights();
+    }
+
+    також робимо кілікабельними тільки фігури 
+
+    це ми робимо в BoardComponent і CellComponent 
+    ми в BoardComponent робимо 
+
+    const BoardComponent:FC<BoardProps> = ({board, setBoard}) => {
+    const [selectedCell, setSelectedCell] = useState<Cell | null>(null); ми створюємо useState з дженерік Cell або null 
+
+    function click(cell: Cell){
+        if(cell.figure){ всі cell які приходять мусять містити figure тут клік який буде отримувати cell і сетати в useState  тобто ми ніби отримуємо сюди наві cell 
+            setSelectedCell(cell) 
+        }
+    }
+
+    return (
+        <div className="board">
+            {board.cells.map((row, idx) => 
+
+                <React.Fragment key={idx}>
+                    {row.map(el => 
+                        selected={el.x === selectedCell?.x && el.y === selectedCell?.y} - тут ми перевірямо збіг кординат і повертати true або false
+                        <CellComponent click={click} selected={el.x === selectedCell?.x && el.y === selectedCell?.y} key={el.id} cell={el}/>
+                    )}
+                </React.Fragment>
+            )}
+        </div>
+    )
+}
+export default BoardComponent;
+
+і в CellComponent ми приймаємо нові парметри 
+
+interface CellProp{
+    cell: Cell,
+    selected: boolean, описуємо selected  
+    click: (cell: Cell) => void і click
+}
+
+const CellComponent:FC<CellProp> = ({cell, selected, click}) => {
+    return (
+        <div onClick={() => click(cell)} робимо клік на cell і передаємо в BoardComponent className={["cell", cell.color, selected ? 'selected' створюємо клас : '' ].join(' ')}>
+            {cell.figure?.logo && <img src={cell.figure.logo}></img>}
+        </div>
+    )
+}
+export default CellComponent;
+
+далі ми працюємо з available
+поки шо він буде true тому всі клітинки на яких є фігура будуть підсвічуватися через створений клас в css 
+
+приклад:
+<div style={{backgroundColor: cell.available && cell.figure ? 'green' : '' }}  onClick={() => click(cell)} className={["cell", cell.color, selected ? 'selected' : '' ].join(' ')}>
+    {cell.available && (!cell.figure) && <div className="available"></div>} відображення можливих ходів 
+    {cell.figure?.logo && <img src={cell.figure.logo}></img>}
+</div>
+тобто тут ми підсвічуємо фігури і вказуємо на можливі ходи 
+
+
+тепер нам потрібно змінювати при нажиманні на іншу клітинку місце розташування фігури
+ми прописуємо в BoardComponent 
+
+    useEffect(() => {
+        cellLightCells();
+    }, [selectedCell]) при кожному кліку зміні відбувається перевірка і оновлення table 
+
+    це методи з реалізацією в Board 
+
+    цей для того шоб демонструвати можливі клітинки для ходу в собі містить canMove
+    function cellLightCells(){ // тут ми проходимся по всім клітинкам і дивимся куда можемо піти в даний момент всюди 
+        board.cellLightCells(selectedCell); передаємо клітинку на яку клікнули шоб перевірити чи може вона ходити поки шо може 
+        getUpdatedBoard(); // робимо перендеринг замість react
+    }
+    function getUpdatedBoard(){ тут так само в нас код в Board але тут ми мусиимо після провірки і задавання available оновити board
+        const update = board.getUpdated();
+        setBoard(update);
+    }
+
+    тепер в Board 
+
+    public cellLightCells(selectedCell: Cell | null){ 
+        for (let i = 0; i < this.cells.length; i++) {
+            const row = this.cells[i];
+            for (let j = 0; j < row.length; j++) {
+                const target = row[j];
+                target.available = !!selectedCell?.figure?.canMove(target);
+                проходимося по кожному значенню і перевіряємо чи може зробити хід і результат в available 
+                і також ця функцію виконується завжди так як реагує на заміни cell тобто на кліки і тд 
+            }
+        }
+    }
+
+    public getUpdated(): Board{
+        const newBoard = new Board();
+        newBoard.cells = this.cells; тут ми після перевірки cell на мажливість кліку і встановленню available board
+        return newBoard;
+    }
+
+    selectedCell.moveFigures(cell); 
+    public moveFigures(target: Cell){
+        if(this.figure && this.figure.canMove(target) тут перевірка на короля і по кольору){ 
+            this.figure.moveFigure(target); це ми використовуємо там де canMove поки пустий 
+            target.figure = this.figure присвоюємо йому обєкт фігури який === тому шо ми нажали  
+            this.figure = null; 
+        }
+    }
+
+ми в Figure створили 
+
+    public canMove(target: Cell): boolean{
+        if (target.figure?.color === this.color) {
+            return false
+        }
+        if (target.figure?.name === FigureName.KING) {
+            return false
+        }
+        return true;
+    };
+    
+    для дочірніх ми використовуємо 
+
+    canMove(target: Cell): boolean
+    {
+        if(!super.canMove(target)){ ми провіряємо з контекстом(обєктом який ми заповнили через constructor через super)
+            return false 
+        }
+        return true;
+    }
+
+    про клік 
+    const [clickedCell, setClickCell] = useState<Cell | null>(null);
+
+    const click = (cell: Cell) => { ми ж клікаємо 2 рази переший по тій самій клітинці там де вже є присутній обєкт cell
+    тому if не виконується а виконується else і в useState попадає той самий елемент на який ми клікнули  
+    коли ми клікаємо 2 раз то ми в clickedCell маємо той елемент на який ми клікали 1 перший раз 
+    clickedCell.moveFigure(cell); сюда ми передаємо 2 клітинку на яку ми клікнули тобто в clickedCell є стара а в cell наступна та на яку ми клікаємо 2 раз 
+        if(clickedCell && clickedCell !== cell){
+            clickedCell.moveFigure(cell);
+            setClickCell(null);
+        }
+        else{
+            setClickCell(cell)
+        }
+    }
+    тут ми якраз розглянемо moveFigure тобто в нас є загальний для првірки на коороля і на колір 
+    він знаходиться в Cell 
+    а 2 схожий метод буде для кожної фігури так як вони будуть мати свої ходи 
+
+    загальний для ходу 
+    public moveFigure(cell: Cell){
+        if(this.figure && this.figure.canMove(cell)){ перевірити 
+            this.figure.moveFigure(cell); тут поки нема логіки 
+            cell.figure = this.figure;  тут 2 клік отримує фігуру цей спосіб не всюди змінює фігуру тобто  нижче буде правильний спосіб 
+            this.figure = null; і після того забирається фігура з старої клітинки 
+        }
+    }
+
+
+
+    тут розробка ходів весь синтаксис в Cell 
+    
+    важливо зрозуміти що this.figure - це 1 клік target.figure - це 2 клік
+    ці методи входять для кожної фігури і находяться в canMove
+    isEmpty(){
+        return this.figure === null перевірка чи є фігура на інтервалі старого і ноіого кліку
+    }
+
+     isEmptyVertical(target: Cell): boolean{ перевірка на вертикалність тобто хід вертикально
+        if(this.x !== target.x){ тобто х - відсутній ми працюємо тільки з y
+            return false;
+        }
+
+        const max = Math.max(this.y, target.y); більше значення
+        const min = Math.min(this.y, target.y); менше значення по суті це те саме this.y i target.y 
+        ми за допомогою цих значень розглядаємо динамічно кожен хід і можлиість його 
+
+        for (let i = min + 1; i < max; i++) { робимо інтервал і підлаштовуємся під нього 
+            if(!this.board.getCell(i, this.x).isEmpty()){ якшо потрапляємо на фігуру то виводимо false
+                return false;
+            }
+        }
+        return true
+    }
+    тут аналогічно тільки для y
+    isEmptyHorizontal(target: Cell): boolean{
+        if(this.y !== target.y){
+            return false;
+        }
+        // this.x або this.y
+        const max = Math.max(this.x, target.x); // this.x - початковий тобто та позиція на якій ми є 
+        const min = Math.min(this.x, target.x);
+        
+        for (let i = min + 1; i < max; i++) {
+            
+            if(!this.board.getCell(this.y, i).isEmpty()){
+                return false;
+            }
+        }
+        return true
+    }    
+
+    тут ми ведемо перевірку для діагоналі 
+
+    isEmptyDiagonal(target: Cell): boolean{
+        
+        const absX = Math.abs(target.x - this.x); це ми беремо довжину нашого кліку з від нового віднімаємо старий в abs бо новий може бути менший
+        const absY = Math.abs(target.y - this.y); тут так само 
+
+        if(absX !== absY){ тут ми перевірямо чи це діагональ бо в діагоналі вони мають дорівнювати тобто якшо ми рухаємось нею
+            return false;
+        }
+        
+        let dx = this.x < target.x ? 1 : -1; також ми можемо ходити назад і це важливо якшо новий клік менший старого
+        let dy = this.y < target.y ? 1 : -1;
+
+        for (let i = 1; i < absY; i++) { absY вони однакові
+            if(!this.board.getCell((this.y + (dy*i)), (this.x + (dx*i))).isEmpty()){ (this.y + (dy*i)) ми йлемо по ношому інтервалі і перевіряємо кожну клітинку на наявність фігури 
+                return false;
+            }
+        }
+        return true;
+    }
+
+    setFigure(figure: Figure){ це перестановка фігури на наступну клікинку також це запамятовування ходу на наву
+        this.figure = figure; ми старій прописуємо нову
+        this.figure.cell = this і вказуємо на оновлений обєкт 
+    }
+
+    public moveFigure(cell: Cell){
+        if(this.figure && this.figure.canMove(cell)){
+            this.figure.moveFigure(cell);
+            cell.setFigure(this.figure); - тут це для отриманого нового cell 
+            this.figure = null; стару обнуляємо
+        }
+    }
+
+
+    розробка ходів для pawn 
+    public canMove(target: Cell): boolean {
+        if(!super.canMove(target)){
+            return false
+        }
+        const step = this.cell.figure?.color === Color.BLACK ? 1 : -1; куда мають рухатися чорні(білі)
+        const stepTwo = this.cell.figure?.color === Color.BLACK ? 2 : -2; перший можливий хід на 2
+
+        if((target.y === this.cell.y + step || this.twoStepActive && (target.y === this.cell.y + stepTwo)) тут ми робимо хід вперед як і від білої сторони так і від чорної 
+        но також ми використовуємо this.twoStepActive для того шоб зробити цю можливість ходити через 2 на 1 раз 
+        && target.x === this.cell.x - говорить шо тільки 1 кільтинка посторонам){
+            if(target.figure){ якшо є фігура перед нами то стоп бо пішки не бють прямо
+                return false
+            }
+            return true
+        }
+        тут удар подіагоналі а саме 1 крок вперед і на 1 вліво або вправо 
+        if(target.y === this.cell.y + step && target.figure && (target.x === this.cell.x + 1 || target.x === this.cell.x - 1))
+            return true
+        return false
+    }
+
+    це метод який входить в Figure Pawn він для того шоб якраз після першого нажимання на pawn зупинити його можливістьруху на 2 вперед
+    public forPawn(target: Cell){
+        super.forPawn(target);
+        this.twoStepActive = false
+    }
+
+    переключення ходу
+    нам потрібно перемикати хід при кожному ході 
+    ми в App.tsx створюємо 3 useState
+    для білих і чорних і також current тобто яка зараз є 
+
+    як правило ми починаємо хід з білої тому в current ми ставимо білий useState який приймає 
+    class Player в якого в конструкторі ми встановлюємо колір 
+
+    далі ми створюємо метод в якому ми по кольору тобто тому кольору шо є зараз 
+    ставимо заміну приклад 
+
+    setCurrentColor(currentColor === whitePlayer ? blackPlayer : whitePlayer);
+
+    далі ми відправляємо в BoardComponent метод для заміни і сам колір тобто той шо є зараз 
+    в BoardComponent типізуємо  
+
+    далі в click ми виконуємо метод swap тобто зміна це після 2 кіліку 
+
+    а після першого ми перевіряємо чи current.color !== Color.WHITE тоді ми далі йдемо 
+    тобто позбуваємося після 1 кліку це означає шо це наступний колір 
+
+
+    список зїджених фігур 
+    ми спочатку створюємо масиви для білих і чорних фігур ці масиви приймають 
+    білі і чорні instance для фігур
+
+    далі в методі moveFigure для перестановки позиції фігури 
+    ми там записаємо в масив фігуру з 2 кліку якшо вона там є
+    
+    також нам потрібно в методі який є в Board забіндити і переписати ці масиви 
+    так само як cells це для відображання змін і правильного rendering
+
+    ми створюємо компонент який примає масив і заголовок і в App.tsx ми передаємо 
+    і зїджені фігури будуть відображатися   
+
+
+    хід пішака 
+    це продожений синтаксис тобто тут він ходить ідеально 
+    public canMove(target: Cell): boolean {
+
+        if(!super.canMove(target)){ ми беремо батьківський метод і провіряємо його на колір 
+            return false
+        }
+
+        const step = this.cell.figure?.color === Color.BLACK ? 1 : -1; для білих шлях вверх тобто -1 і для можливості 1 ходу -2
+        const stepTwo = this.cell.figure?.color === Color.BLACK ? 2 : -2;
+
+        if((target.y === this.cell.y + step || this.twoStepActive && (target.y === this.cell.y + stepTwo)) задання можливості ходити на 1 клітинку вверх вниз залежитьь від кольору
+        також провірка булевого значення на перших хід 
+        && target.x === this.cell.x - це робить можливість ходити на 1 клітинку серед всіх x){
+
+            if(target.figure && this.twoStepActive){ коли ми попадаємо сюди 
+            ми спочатку перевіряємо на наявність true і фігури на 1 або 2 клітинці це для 1 ходу там де ми можемо 2 зразу походити
+                const oneStep = this.cell.y + step; 
+                const twoStep = this.cell.y + stepTwo;
+
+                let fCell = this.cell.board.getCell(oneStep, target.x);
+                let sCell = this.cell.board.getCell(twoStep, target.x); тут ми взяли клітинки 1 і 2
+                
+                if(fCell.figure && this.twoStepActive){ перевірити 1 на наявність фігури
+                    sCell.available = false якшо є попереду фігура то false для 2 клітинки 
+                }
+                this.twoStepActive = false і тут ми можливість прикриваємо
+                return false
+            }  
+            if(target.figure){ це для 1 кроку після 1 ходу 
+                return false
+            }
+            return true
+        }
+        тут удар по діагоналі 
+        if(target.y === this.cell.y + step && target.figure && (target.x === this.cell.x + 1 || target.x === this.cell.x - 1))
+            return true
+
+        return false
+    }
+
+    примітка
+    в ts отриманий обєкт ми типізуємо його елементи 
+    приклад:
+    тут ми передаємо параметри
+    <CellComponent object={x: 12, y: 11}> 
+
+    тепер ми отримуємо дані
+
+    interface Element {
+        x: number
+        y: number 
+    }
+
+    constr CellComponent = (obj: Element) => {
+        
+    }
+
+
+    створення шаху для короля пояснення 
+    прчнемо з BoardComponent 
+    я створив провірки тобто коли ходить білі фігури а коли чорні 
+    приклад 
+
+     тут ми беремо кординати короля чорних тобто його current position 
+     і записуємо в state   
+     if(currentColor?.color === Color.BLACK){
+            if (cell.figure?.figureName === FigureName.KING && cell.figure.color === Color.BLACK) {
+                setBlackKing({...blackKing, x: cell.x, y: cell.y})
+            }  
+     }
+
+     а тут ми провіряємо кожен хід білих і виклиувємо метод який в собі провіряє всі фігури 
+     відносно чорного короля і поіертає true false залежно від шаху 
+     if(currentColor?.color === Color.WHITE){
+            if(clickedCell.findBlackKing(cell, blackKing)){
+                setTimeout(() => {
+                    alert('Шаг чорному королю!');
+                }, 100); тут я встоновив час для того шоб спочатку запбрався available і тоді появився alert
+            }
+        }
+
+     тут анологічно тільки відносно білого короля  
+     if(currentColor?.color === Color.WHITE){
+         if (cell.figure?.figureName === FigureName.KING && cell.figure.color === Color.WHITE) {
+             setWhiteKing({...whiteKing, x: cell.x, y: cell.y})
+         }  
+     }
+     if(currentColor?.color === Color.BLACK){
+         if(clickedCell.findWhiteKing(cell, whiteKing)){
+             setTimeout(() => {
+                 alert('Шаг білому королю!');
+             }, 100);
+         }
+     }
+
+
+     далі сам метод і його провірки 
+
+     findBlackKing(cell: Cell, blackKingXY: BlackKingCoordinates){   
+
+        if (cell.figure?.figureName === FigureName.QUEEN || cell.figure?.figureName === FigureName.BISHOP) {  
+            спочатку ми розлядаємо діагональний шах
+
+            тобто тут так само як попередній клік і наступний 
+            тільки ми розуємо шо попередній це місце фігури яка ставить шаг 
+            а наступний це сам король
+
+            const dx = Math.abs(cell.x - blackKingXY.x);  якшо однакові то діагональ
+            const dy = Math.abs(cell.y - blackKingXY.y);
+            
+            const directionX = blackKingXY.x < cell.x ? -1 : 1; -1 для білих тобто вверх до чорного короля
+            const directionY = blackKingXY.y < cell.y ? -1 : 1;
+
+            if(dx !== dy){ тепер якшо недорівнюють це значить шо не діагональ це вбільшості для королеви 
+                if (cell.x !== blackKingXY.x) { одна клітинка вверх тобто одиночні але тут ми будемо використовувати 
+                компактно тому це для вертикально тобто під цією провіркою вертикаль  
+
+                    if (cell.y !== blackKingXY.y) { тутпровірка на стовпці також по одному  
+                        return false;
+                    }
+    
+                    const max = Math.max(cell.x, blackKingXY.x); 
+                    const min = Math.min(cell.x, blackKingXY.x);
+        
+                    for (let i = min + 1; i < max; i++) { від 1 й до 
+                        if(!cell.board.getCell(cell.y, i).isEmpty()){ якшо не є пуста 
+                            if(cell.board.getCell(cell.y, i).figure?.figureName === FigureName.KING){ і якшо === king
+                                return true повертаємо в BoardComponent 
+                            }
+                            return false а якшо інша фігура то false
+                        }
+                    }
+                    return true
+                }
+
+                тут так само для горизонталі 
+                const max = Math.max(cell.y, blackKingXY.y);
+                const min = Math.min(cell.y, blackKingXY.y);
+    
+                for (let i = min + 1; i < max; i++) {
+                    if(!cell.board.getCell(i, cell.x).isEmpty()){
+                        if(cell.board.getCell(i, cell.x).figure?.figureName === FigureName.KING){
+                            return true
+                        }
+                        return false
+                    }
+                }
+                return true
+            }
+            
+            тут діагональ 
+            ми початкові значення беремо 1 бо 0 це і є ця фігура 
+            directionY - залежить від короля тобто якшо більше від cell то - а навпаки +
+            directionX
+            for (let i = 1; i < dy; i++) {     
+                if(!this.board.getCell(cell.y + (i * directionY), cell.x + (i * directionX)).isEmpty()){
+                    if(this.board.getCell(cell.y + (i * directionY), cell.x + (i * directionX)).figure?.figureName === FigureName.KING){
+                        return true
+                    }
+                    return false
+                }
+            }
+            return true;
+        }
+
+        
+        if (cell.figure?.figureName === FigureName.PAWN) {   
+            const directionForBlackKing = -1;
+            тут якшо позиція короля === cell.y - 1 тобто вверх бо пішка назад не бє 
+            і cell.x + 1 або - 1 то повертаємо true
+            if(blackKingXY.y === cell.y + directionForBlackKing && cell.figure && (blackKingXY.x === cell.x - 1 || blackKingXY.x === cell.x + 1)){
+                return true  
+            }
+            return false
+        }
+
+
+        if (cell.figure?.figureName === FigureName.KNIGHT) {   
+
+            const dx = Math.abs(cell.x - blackKingXY.x); це різниця а ми знаємо шо позиція коня змінюється і різниця буде 2 1 або 1 2  
+            const dy = Math.abs(cell.y - blackKingXY.y);
+            для коня те саме  
+            if((dy === 2 && dx === 1) || (dy === 1 && dx === 2)){
+                return true  
+            }
+            return false
+        }
+
+        то саме шо для Bishop і QUEEN
+        if (cell.figure?.figureName === FigureName.ROOK) {            
+            if (cell.x !== blackKingXY.x) {
+
+                if (cell.y !== blackKingXY.y) {
+                    return false;
+                }
+
+                const max = Math.max(cell.x, blackKingXY.x);
+                const min = Math.min(cell.x, blackKingXY.x);
+    
+                for (let i = min + 1; i < max; i++) {
+                    if(!cell.board.getCell(cell.y, i).isEmpty()){
+                        if(cell.board.getCell(cell.y, i).figure?.figureName === FigureName.KING){
+                            return true
+                        }
+                        return false
+                    }
+                }
+                return true
+            }
+
+            const max = Math.max(cell.y, blackKingXY.y);
+            const min = Math.min(cell.y, blackKingXY.y);
+
+            for (let i = min + 1; i < max; i++) {
+                if(!cell.board.getCell(i, cell.x).isEmpty()){
+                    if(cell.board.getCell(i, cell.x).figure?.figureName === FigureName.KING){
+                        return true
+                    }
+                    return false
+                }
+            }
+            return true
+        }
+
+    }

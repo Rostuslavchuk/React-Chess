@@ -1,0 +1,1035 @@
+
+canMove початкова провірка для того шоб ми не могли бити своїх по корольрах
+
+для Figure првірки типу 
+if(previosFigureColor === current){
+    return false
+}
+return true
+
+всі дочірні отримують
+if(super.canMove()) - тобто в задежності шо певерне ця функція 
+
+cellComponent 
+<div onClick={e => click(cell)} style={{backgroundColor: cell.available && cell.figure ? 'green' : ''}} - фігури для биття 
+className={['cell', cell.color, selected && !cell.figure ? 'selected' : ''].join(' ')}> і вибір путих фігур 
+
+    {cell.available && !cell.figure && <div className='available'></div>} ходи відображаємо 
+    {cell.figure?.logo && <img src={cell.figure?.logo} width={40} height={40} />}
+
+</div>
+ми для цьго створюємо available style тобто для показу можливих ходів 
+і selected для вибору 
+
+
+клік 2 рази в BoardComponent
+    ми створюємо state для того шоб зробити 2 кліка 
+    const [clicked, setClicked] = useState<Cell | null>(null)
+
+    const click = (cell: Cell) => {
+        тут ми робимо провірку яка відділяє 2 кліка тобто ми пишемо якшо cell !== clicked і тільки тоді ми йдемо далі 
+        і всі вилики з основою clicked для cell (cell це наступний клік)
+        if(clicked && cell !== clicked && clicked.figure?.canMove(cell)){
+            clicked.moveFigure(cell); тут ми робимо переміщення 
+            setClicked(null) обнуляємо стару позицію
+        }
+        else{
+            якшо не виконалося то це 1 клік 
+            setClicked(cell)
+        }
+    }
+
+розберемо метод який переставляє фігури moveFigure
+в Cell 
+move(figure: Figure){ тут ми займаємося новою клітинокю так як ми викликали цей метод з основою target а це нова клітинка
+        this.figure = figure присвоюємо новиу фігуру 
+        this.figure.cell = this і для figure.cell беремо цей клас тобто оновлений  
+    }
+    moveFigure(target: Cell){
+        this.figure?.PawnStart(target); цей метод буде потрібен для Pawn перший хід 
+
+        if(this.figure && this.figure?.canMove(target)){ тут ми дивимося чи на 1 клікує фігура і canMove для target
+            target.move(this.figure) з основою target передаємо фігуру
+            this.figure = null після обнулюємо її 
+        }
+    }
+
+
+Примітка ми в class Figure і constructor робимо fluent interface 
+для cell 
+this.cell.figure = this; для того шоб ми могли отримувати властивості 
+
+
+і оновлення змін повязані з board 
+ми в Board створюємо 2 методи саме оновлення всіх available для кожної клітинки тої шо ми клікнули 1 раз 
+і стіворення нового instance 
+
+refresh(target: Cell | null){
+    for(let i = 0; i < this.cells.length; i++){
+        const row: Cell[] = this.cells[i];
+        for(let j = 0; j < row.length; j++){
+            let cell = row[i];
+            cell.available = !!target.figure.canMove(cell); - переводимо в falsy trufy
+        }
+    }
+}     
+
+createNewInstance(){
+    const newBoard = new Board();
+    newBoard.cells = this.cells
+    return newBoard;
+}
+
+далі в BoardComponent
+
+useEffect(() => {
+        refresh()
+    }, [clicked])
+
+    const refresh = () => {
+         board.doRefreshFigures(clicked)
+         createNewInstance()
+    } 
+    const createNewInstance = () => {
+        const newBoard = board.createNewInstance();
+        setBoard(newBoard)
+    }
+    при кожному кліку ми робимо оновлення
+    і тому зміни будуть відобрежені 
+
+
+далі розставлення ходів ми основні методи записуємо в Cell 
+ми ці методи будемо використовувати в canMove() 
+тобто ми будемо вказувати куда можна йти(і де буде відображатися available бо він реагує на кожну зміну)
+
+розставлення ходів для діагоналі 
+
+ moveDiagonal(target: Cell){
+    тут dx і dy мусять буди однокові так як це діаганаль і їхня різниця тобто минулого кілку і теперішнього це якраз 
+    відстанб між ними
+        const dx = Math.abs(target.x - this.x); 
+        const dy = Math.abs(target.y - this.y);
+
+        напрямок якшо - то вверх якшо + то вниз  
+        const directionX = this.x < target.x ? 1 : -1;    
+        const directionY = this.y < target.y ? 1 : -1;
+
+        і якшо вони не рівні то це не діагональ 
+        if(dx !== dy){
+            return false;
+        }
+        тут ми до нашого минулого кліку додаємо і * на напрямок і провіряємо чи пусти кожна клітинка якшо ні то ми зразу повертаємо false 
+        ми первертаємо ці значення(boolean) бо ці методи будуть використовуватися в canMove а воно працює з available яке приймає true false  
+        for (let i = 1; i < dy; i++) {
+            if(!this.board.getCell(this.y + (i * directionY), this.x + (i * directionX)).isEmpty()){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    вертикаль і горизонталь 
+    
+    moveHorizontal(target: Cell){
+        if(target.y !== this.y){ тут має вони дорівнювати бо вони якраз говорять за 1 клітинку то вертикаль і всі погоризонталі 
+            return false
+        }
+
+        const max = Math.max(target.x, this.x); від меного до більшого 
+        const min = Math.min(target.x, this.x);
+
+        for(let i = min + 1; i < max; i++){ так саме перевіряємо 
+            if(!this.board.getCell(this.y, i).isEmpty()){
+                return false
+            }
+        }
+        return true
+    }
+    
+    moveVertical(target: Cell){
+        if(target.x !== this.x){ тут аналогічно 
+            return false;
+        }
+
+        const max = Math.max(target.y, this.y);
+        const min = Math.min(target.y, this.y);
+
+        for (let i = min + 1; i < max; i++) {
+             if(!this.board.getCell(i, this.x).isEmpty()){
+                return false
+             }   
+        }
+        return true
+    }
+
+
+    для короля ми перевіряємо тільки ходи на 1 по всіх сторонах 
+    приклад 
+        onst dx = Math.abs(target.x - this.cell.x)
+        const dy = Math.abs(target.y - this.cell.y)
+        
+        if(dx === 1 && dy === 1){
+            return true
+        }
+        if(dx === 1 && dy === 0){
+            return true
+        }
+        if(dx === 0 && dy === 1){
+            return true
+        }
+        return false 
+    для коня схоже тільки в нього x i y може бути 1 і 2 або 2 і 1 
+    приклад 
+        const dx = Math.abs(target.x - this.cell.x);
+        const dy = Math.abs(target.y - this.cell.y);
+
+        return (dx === 1 && dy === 2) || (dx === 2 && dy === 1)     
+
+
+    для пішака тут важливо ми використовуємо super.function(target) для того шоб забезпечити почат роботи 
+    тут він має перший хід на 2 або на 1 і якшо фігура є на 1 то на 2 хід заборонений 
+
+    приклад 
+
+        так само ми розбиваємо на ходи - знизу вверх + зверху вниз 
+        const stepOne = this.cell.figure?.color === Color.BLACK ? 1 : -1
+        const stepTwo = this.cell.figure?.color === Color.BLACK ? 2 : -2
+        
+        перевірка на клік вперед і на true значення this.secondStep тут або бо потім це значення відпаде 
+        і target.y === this.cell.y + stepTwo не буде виконуватися 
+        if((target.y === this.cell.y + stepOne || this.secondStep && (target.y === this.cell.y + stepTwo))
+        && target.x === this.cell.x){ 1 клік вверх 
+
+            if(target.figure && this.secondStep){ якшо 2 клік тобто перший 
+                const firstCell = this.cell.y + stepOne; беремо y
+                const secondCell = this.cell.y + stepTwo; і тут 
+
+                тут беремо cell 
+                const first = this.cell.board.getCell(firstCell, this.cell.x);
+                const second = this.cell.board.getCell(secondCell, this.cell.x);
+
+                якшо на 1 є фігура тоді 2 available = false і змінюємо значення  
+                if (first.figure && !second.figure) {
+                    this.secondStep = false
+                    second.available = false
+                }
+            }
+
+            тут шоб неможна було бити вперед
+            if(target.figure){
+                return false;
+            }
+            return true
+        }
+        далі удар дивимося крок вперед і чи є фігура і x - 1 i x + 1 перевірка
+        доречі крок вперед визначається новий крок === старий + крок з direction
+        if(target.y === this.cell.y + stepOne && target.figure && (target.x === this.cell.x + 1 || target.x === this.cell.x - 1)){
+            return true
+        }
+        return false
+   }
+   public PawnStart(target: Cell){
+        super.PawnStart(target) ми після 1 кліку для 1 фігури Pawn disabled подвій крок це для кожної фігури 
+        this.secondStep = false
+   }
+
+   відображення видалених фігур 
+   ми створюємо 2 масива в Board також для відображення змін 
+   ми так само робимо як з cells newBoard.cells = this.cells 
+   ці масиви в refresh потрбіно зробити так само бо вони будуть відображати постійно 
+   зміни 
+
+   далі ми в moveFigure там викоритосвується наступний клік 
+   і ми провірками запушуємо в масиви фігури 
+   далі ми створюємо компонент і в ньому ми відображаємо наші фігури
+
+   далі про передачу ходу
+   ми створюємо class Player який приймає колір  
+   ми а App створюємо Player і в конструктор білий колір або null 
+   так само з black 
+
+   потім ми стіворюємо такий самий тільки current 
+   далі ми в current сетаємо в useEffect(() => {},[]) - білий колір
+   стврюємо функцію swapPlayer
+   setCurrentColor(currentColor === whiteColor ? blackColor : whiteColor)
+   тобто якшо є більий ставимо чорний 
+
+   і в BoardComponent ми передаємо swapPlayer і current 
+
+   далі в BoardComponent 
+   swapPlayer - ми викликаємо якшо виконався 2 клік 
+
+   а current ми викоритосвуємо як провірку після 1 кліку 
+   тобто тільки тоді коли current.color === cell.figure.color 
+
+    /*
+        стіворення шаху і виввід його через alert тобто відображення 
+        як правило його протрібно зробити в cell і в методіх для руху фігур 
+        тобто якшо попадається король то виводимо alert 
+        і також важливо перевіряти на колір  
+    */
+
+   так на жаль не вийде бо в нас ця провірка йде після 1 кліку і провіряє на наявнсть 
+   і тому в нас після 1 кліку якшо король нашляху воно спрацьовує а нам потрібно після 2 і 
+   дивитися відносно короля динамічно 
+
+   потрібно створити в BoardComponent в методі click і саме головне шо потрбіно після 2 кліку 
+   бо ми якраз ставимо шах після 2  
+
+   далі нам потірбно створити 2 провірки для чорного і білого короля і також стіорити useState 
+   які будуть приймати кординати короля при його ходінні а спочатку ми ставимо тобто хардкодимо початкові 
+
+   тобто якшо ми ходимо білим то його кординати записуються і так само з чорним 
+   приклад: 
+    if(cell.figure?.figureName === FigureName.KING){ тобто якшо король 
+        if(cell.figure.color === Color.BLACK){ тоді який колір 
+            setBlackKing({...blackKing, x: cell.x, y: cell.y}) і тоді set правильний колір 
+        }
+        else{
+            setWhiteKing({...whiteKing, x: cell.x, y: cell.y})
+        }
+    } 
+
+   далі ми робимо провірку якшо фігура якою ми ходимо білого або чорного кольору 
+   це залежить для якого короля буде виконуватися шаг  
+   якшо фігура кольору білого то шаг для чорного короля так само з чорними фігурами
+   ми це огортаємо в setTimeout для того шоб спочатку виконалося переміщення фігури а тоді 
+   вже вивід alert
+   приклад для ліпшого пояснеяння
+   setTimeout(() => {
+        if(cell.figure?.color === Color.WHITE){ якшо колір фігури білий 
+            if(cell.blackKingKill(cell, blackKing)){ метод який повертає true||false 
+            true якшо є король і перед ним іншої фігури 
+                alertBlackKing() функція яка виводить alert 
+            }
+        }
+        if(cell.figure?.color === Color.BLACK){ аналочно з black 
+            if(cell.whiteKingKill(cell, whiteKing)){
+                alertWhiteKing()
+            }
+        }
+   }, 100)
+   також тут змінюються методи для кожної він інший для whiteFigures ми викоритосуємо killBlackKing
+   а для blackFigures ми викоритосуємо killWhiteKing
+
+   далі ці методи killWhiteKing і killBlackKing
+   це методи які в собі мають провірки на фігури тобто вони в сиганурі як параметри містять 
+   cell - це 2 кілік тобто його cell і кординати короля протилежного кольору 
+   
+   і ми в цьому методі провіряємо на фігуру і для в цій провірці робимо ше одну на перевірку ходів
+   тобто вертикально горизантольно подіагоналі пішак кінь 
+   якшо фігура така я королева то через || 
+   і ці методи для ходу повертаються true або false і ці перевірки також повертають boolean 
+   і функція це поверта в BoardComponent і виводиться alert 
+   приклад для методу в Cell 
+
+    тобто тут ми використовуємо методи які находяться тут і якшо фігура має кілька способів поставити шах то 
+    ми їх застосовуємо через || 
+
+    whiteKingKill(cell: Cell, kingParams: XY){
+            if(cell.figure?.figureName === FigureName.QUEEN){
+                if(this.tryToKillKingHorizontal(cell, kingParams) || this.tryToKillKingDiagonal(cell, kingParams) || this.tryToKillKingVertical(cell, kingParams)){
+                    return true;
+                }
+            }
+            if(cell.figure?.figureName === FigureName.BISHOP){
+                if(this.tryToKillKingDiagonal(cell, kingParams)){
+                    return true
+                }
+            }
+            if (cell.figure?.figureName === FigureName.KNIGHT) {
+                if(this.tryToKillKingWithKnight(cell, kingParams)){
+                    return true
+                }
+            }
+            if(cell.figure?.figureName === FigureName.PAWN){
+                if(this.tryToKillKingWithPawn(cell, kingParams)){
+                    return true
+                }
+            }
+            if(cell.figure?.figureName === FigureName.ROOK){
+                if(this.tryToKillKingHorizontal(cell, kingParams) || this.tryToKillKingVertical(cell, kingParams)){
+                    return true
+                }
+            }
+        }
+
+   тепер про самі ходи 
+   приклад на якому сформується пояснеяння
+   в цих методах ми використовуємо провірку находження між ними сторонніх фіігур 
+   
+   вони в параметри отрмують те саме шо ми передаємо в BoardComponent 
+   tryToKillKingDiagonal(cell: Cell, kingParams: XY){  
+            по стандарту якшо діагональ то при різниці ми отримаємо відстань між фігурою і королем 
+            і вони повиині бути однаковими тобто різниці кординат 
+            const dx = Math.abs(cell.x - kingParams.x);
+            const dy = Math.abs(cell.y - kingParams.y);
+
+            далі напрямок тут ми кажемо шо він може бути як вперед так і назад
+
+            тобто якшо кодината x і y менша короля то ми йдемо вниз тобто 1 2 3 4 5 6 7
+            а якшо ми йдемо наверх то корджинати будуть вверх це віднімання тобто рухаємося до 0  
+            const directionX = kingParams.x < cell.x ? -1 : 1;
+            const directionY = kingParams.y < cell.y ? -1 : 1;
+            
+            if(dy !== dx){ якшо вони не однокові то це не є діагональ                
+                return false
+            }
+
+            далі ми ітеруємся по відстані 
+            for (let i = 1; i < dx; i++) {
+                перевіряємо кожну кілтинку 
+                тобто ми нашу початкову клітинку збільшуємо cell.y i cell.x на (directionX && directionY) * i    
+                if(!this.board.getCell(cell.y + (i * directionY), cell.x + (i * directionX)).isEmpty()){
+                    якшо є фігура і вона недорінює королю то ми повертаємо false
+                    якшо є король або пусто ми повертаємо true але мені неподобалося повернення true при пустоті лінії 
+                    так як для ходу в нас є оеремі методи
+                    if (this.board.getCell(cell.y + (i * directionY), cell.x + (i * directionX)).figure?.figureName !== FigureName.KING) {
+                        return false
+                    }
+                }
+            }
+            return true
+    }
+
+    ліпший спосіб перевірки 
+    тут якшо є фігура і вона недорінює королю то false якшо є король то вивід буде true 
+    тобто це перша фігура яка попадається 
+
+    але всеж таки варто використовувати попередній спосіб бо там ми отримуємо result 100% 
+    а якшо пусто то всеодно ну попередній для Vertical і Horizontal точно 
+    бо там ми для пустості і коли попадається король першим тобто ми це робимо конкретно
+
+    for (let i = 1; i <= dx; i++) {
+        if(!this.board.getCell(cell.y + (i * directionY), cell.x + (i * directionX)).isEmpty()){
+                    
+            if (this.board.getCell(cell.y + (i * directionY), cell.x + (i * directionX)).figure?.figureName !== FigureName.KING) {
+                return false
+            }
+            else{                        
+                return true
+            }
+        }
+    }
+
+    тепер про вертикаль і горизонталь 
+    тут провірка йде трохи по іншому бо ми перевіряємо по прямій 
+    тому одна з корднат мусить бути статичноною і провірятися на рівність тобто 
+    наприклад якшо ми розглядаємо tryToKillKingVertical вертикаль 
+    то кордина короля і фігури пртилежного кольру мусять бути на тому самому x 
+            tryToKillKingVertical(cell: Cell, kingParams: XY){  
+
+            if(cell.x !== kingParams.x){ вто уя провірка 
+                return false
+            }    
+
+            далі ми робимо кількість клітинок між ними для ітерації     
+            const max = Math.max(cell.y, kingParams.y);
+            const min = Math.min(cell.y, kingParams.y);
+
+            for (let i = min + 1; i < max; i++) {
+                i цде по кожній вверх або вниз залежить від max min а x без змін 
+                if(!this.board.getCell(i, cell.x).isEmpty()){
+                    if (this.board.getCell(i, cell.x).figure?.figureName !== FigureName.KING) {
+                        return false
+                    }
+                    else{
+                        return true
+                    }
+                }
+            }
+        }
+        аналогічно для вертикалі коли y статично а x ітерується 
+        
+        
+        далі для pawn 
+        так само тут з direction якшо чорна пішка то хід 1 2 3 4 5 
+        якшо біла то -1 -2 -3 -4 itc
+        tryToKillKingWithPawn(cell: Cell, kingParams: XY){
+            const direction = cell.figure?.color === Color.BLACK ? 1 : -1;
+            далі перевірка чи король на позиція ходу там де пішок робить удар 
+            if(kingParams.y === cell.y + direction && cell.figure && (kingParams.x === cell.x + 1 || kingParams.x === cell.x - 1)){
+                return true
+            }
+            return false
+        }
+
+        далі перевірка на коня 
+        tryToKillKingWithKnight(cell: Cell, kingParams: XY){ 
+            const dx = Math.abs(cell.x - kingParams.x);
+            const dy = Math.abs(cell.y - kingParams.y);
+            якшо ця різниця === цим значення тобто бо там стоїть король то робимо шах 
+            if((dy === 2 && dx === 1) || (dy === 1 && dx === 2)){
+                return true  
+            }
+            return false
+        }
+
+        тепер заміна фігури коли вона на останній клітинці y 
+        ми в BoardComponent в click провіряємо на колір позицію і назву 
+        тобто все що відповідає pawn на останній y для білих це 0 для чорних 7 
+        далі ми їх поміщаємо в useState як фігуру для білих і чорних фігур 
+
+        і залежності чи є чи нема фігури ми відображаємо компонент в якому ми робимо реалізацію токбимовити 
+        звязування і заміну 
+        приклад виклику component
+
+        провірка на пустість blackPawn whitePawn
+        {blackPawn && <ChangeFigures board={board} setPawn={setBlackPawn} array={board.arrayBlackForChange} pawn={blackPawn} />}
+        {whitePawn && <ChangeFigures board={board} setPawn={setWhitePawn} array={board.arrayWhiteForChange} pawn={whitePawn} />}
+         
+        також ми в board створюємо масив з фігурами які потрібно використовуати для заміни 
+        також ми мусимо зробити refresh для цього масиву на всякий випадок 
+
+        далі ми переходимо в цей компонент але перед ми в нього передаємо pawn={} array={} setPawn={} board={} 
+        в компоненті ми проходимся по масиву виводимо logo фігури 
+        приклад:
+
+        const ChangeFigures:FC<ChangeFiguresProp> = ({array, pawn, setPawn, board}) => {
+        відображення на яку фігури ми зробили клік 
+        тут ми перевіряємо всі можливі фігури також створюємо instance для потиібних фігур і getCell() для нього ми в параметрах маємо board
+        даємо кординати pawn 
+        function getFigure(figure: Figure){
+            if(figure.figureName === FigureName.QUEEN){
+            const queen = new Queen(figure.color, board.getCell(pawn.cell.y, pawn.cell.x))
+            pawn.cell.figure = queen.cell.figure і для тої фігури яка була ми присвоюємо потрібну 
+            }
+            if(figure.figureName === FigureName.KNIGHT){
+                const knight = new Knight(figure.color, board.getCell(pawn.cell.y, pawn.cell.x))
+                pawn.cell.figure = knight.cell.figure
+            }
+            if(figure.figureName === FigureName.BISHOP){
+                const bishop = new Bishop(figure.color, board.getCell(pawn.cell.y, pawn.cell.x))
+                pawn.cell.figure = bishop.cell.figure
+            }
+            if(figure.figureName === FigureName.ROOK){
+                const rook = new Rook(figure.color, board.getCell(pawn.cell.y, pawn.cell.x))
+                pawn.cell.figure = rook.cell.figure
+            }
+            setPawn(pawn); сетаємо потрібну на місце pawn 
+            setPawn(null) і закриваємо вибір фігури 
+        }
+        return (
+            <div className='figures__container'>
+                {array.map(figuresForChange => (
+                    figuresForChange?.logo && <img onClick={() => getFigure(figuresForChange)} src={figuresForChange?.logo} />
+                ))}
+            </div>
+        )
+
+
+        далі ракіровка 
+        для того шоб використовувати ракіровку нам потрібно дозволити биття своїх тільки для 
+        Rook i King і корльори шоб були одинокові і биття відбуволося для Rook тільки король 
+        і звичайно інші фігури іношого кольору 
+
+        нам потріно в загальному Figure в методі canMove дозволити це робити 
+        тобто ми робимо велику провірку 
+        ми провіряємо:
+        це 1 клік тобто в Figure є прийший клік це this. а другий target.
+        імя фігури дорівнює Rook 
+        і колір або чорний або білий для неї  
+        далі кординати для Rook всі Rook тобто кодинати чорних і білих фігур 
+        далі так само ми робимо з корольом тільки без кординат 
+
+        приклад 
+        if(this.cell.figure?.figureName === FigureName.ROOK
+        && 
+        (this.cell.figure?.color === Color.WHITE || this.cell.figure?.color === Color.BLACK) 
+        &&
+        ((this.cell.figure?.cell.y === 7 && this.cell.figure?.cell.x === 0) || (target.figure?.cell.y === 7 && target.figure?.cell.x === 7) || 
+        (this.cell.figure?.cell.y === 0 && this.cell.figure?.cell.x === 0) || (target.figure?.cell.y === 0 && target.figure?.cell.x === 3) || 
+        ((this.cell.y === 7 && this.cell.x === 7) && (target.y === 7 && target.x === 3)) || ((this.cell.y === 0 && this.cell.x === 0) && (target.y === 7 && target.x === 3)))
+        && 
+        target.figure?.figureName === FigureName.KING
+        && 
+        (target.figure?.color === Color.BLACK || target.figure?.color === Color.WHITE)
+        ){
+            return true
+        }  
+        також ракіровка може виконуватися 1 раз за всю ігру 
+        тому ми в Figure створимо availableCasting: boolean і в constructor задамо true 
+        і в провірці також 
+        приклад: 
+
+        if(this.availableCasting && this.cell.figure?.figureName === FigureName.ROOK
+        && 
+        (this.cell.figure?.color === Color.WHITE || this.cell.figure?.color === Color.BLACK) 
+        &&
+        ((this.cell.figure?.cell.y === 7 && this.cell.figure?.cell.x === 0) || (target.figure?.cell.y === 7 && target.figure?.cell.x === 7) || 
+        (this.cell.figure?.cell.y === 0 && this.cell.figure?.cell.x === 0) || (target.figure?.cell.y === 0 && target.figure?.cell.x === 3) || 
+        ((this.cell.y === 7 && this.cell.x === 7) && (target.y === 7 && target.x === 3)) || ((this.cell.y === 0 && this.cell.x === 0) && (target.y === 7 && target.x === 3)))
+        && 
+        target.figure?.figureName === FigureName.KING
+        && 
+        (target.figure?.color === Color.BLACK || target.figure?.color === Color.WHITE)
+        ){
+            setTimeout(() => {
+                this.availableCasting = false і заблокуємо через 2 секунди 
+            }, 2000)
+            return true
+        }
+
+        далі ми робимо перевірки в BoardComponent 
+        ми провіряємо на кординати тобто Rook і King 
+        і зновужтаки провірка на можливість Casting але тут ми огортаємо 
+        провірки для великої ракіровки і малої ми це робимо в провірці 
+        на availableCasting 
+        приклад 
+
+            if(availableWhiteCasting){  тобто провірка на можливість   
+                if((clicked.y === 7 && clicked.x === 0) && (cell.y === 7 && cell.x === 3)){ провірка кординат 
+                        if(clicked.clearToCastling(clicked, cell)){ тут чи вільно між королем і турою 
+                            const XY = {kingX: 1, rookX: 2} це кординати для зміщення при ракіровці 
+                            if(cell.Castling(clicked, cell, XY, Color.WHITE)){ тут ми робимо ракіроку тобто створюємо нову туру і короля ставимо ці кодинати і колір вкінці повертаємл true
+                                cell.clearCastling(clicked, cell, Color.WHITE) тут видаляємо старі фігури з кодинатами 
+                            }
+                            setAvailableWhiteCasting(false) унеможливлюємо можливість castling 
+                        }   
+                }
+                так для кожної тури тільки для більшої ракіровки інші кординати 
+                if((clicked.y === 7 && clicked.x === 7) && (cell.y === 7 && cell.x === 3)){
+                    if(clicked.clearToCastling(clicked, cell)){
+                        const XY = {kingX: 6, rookX: 5}
+                        if(cell.biggerCastling(clicked, cell, XY, Color.WHITE)){
+                            cell.clearBiggerCastling(clicked, cell, Color.WHITE)
+                        }
+                        setAvailableWhiteCasting(false)
+                    }   
+                }
+            }
+
+
+            if(availableBlackCasting){
+                if((clicked.y === 0 && clicked.x === 0) && (cell.y === 0 && cell.x === 3)){
+                    if(clicked.clearToCastling(clicked, cell)){
+                        const XY = {kingX: 1, rookX: 2}
+                        if(cell.Castling(clicked, cell, XY, Color.BLACK)){
+                            cell.clearCastling(clicked, cell, Color.BLACK)
+                        }
+                        setAvailableBlackCasting(false)
+                    }   
+                }
+                if((clicked.y === 0 && clicked.x === 7) && (cell.y === 0 && cell.x === 3)){
+                    if(clicked.clearToCastling(clicked, cell)){
+                        const XY = {kingX: 6, rookX: 5}
+                        if(cell.biggerCastling(clicked, cell, XY, Color.BLACK)){
+                            cell.clearBiggerCastling(clicked, cell, Color.BLACK)
+                        }
+                        setAvailableBlackCasting(false)
+                    }   
+                }
+            }
+            унеможливення заповнення масиву з видаленими фігурами коли ми робимо ракіровку
+            ми в методі moveFigure перед заповненням робимо перевірку чи дана фігура яка лежить в target !== King  
+
+            тепер видалення короля воно стається тоді коли я нажимаю на туру і на нього 
+            ми можемо при наповнені масиву видалений фігур зробити перевірку на короля тобто його неможливо видалити 
+
+
+            також вот методи які в cell для ракіровки більшої і меншої
+            Castling(clicked: Cell, current: Cell, XY: XYCastling, color: Color){
+            new Rook(color , this.board.getCell(clicked.y, XY.rookX));
+            new King(color, this.board.getCell(current.y, XY.kingX));
+            return true
+            }
+            clearCastling(clicked: Cell, current: Cell, color: Color){
+                new Rook(color, this.board.getCell(clicked.y, clicked.x)).cell.figure = null;
+                new King(color, this.board.getCell(current.y, current.x)).cell.figure = null;
+            }
+
+            biggerCastling(clicked: Cell, current: Cell, XY: XYCastling, color: Color) {
+                new Rook(color, this.board.getCell(clicked.y, XY.rookX));
+                new King(color, this.board.getCell(current.y, XY.kingX));
+                return true
+            }
+            clearBiggerCastling(clicked: Cell, current: Cell, color: Color){
+                new Rook(color, this.board.getCell(clicked.y, clicked.x)).cell.figure = null;
+                new King(color, this.board.getCell(current.y, current.x)).cell.figure = null;
+            }
+
+
+
+            Проблема з Pawn тобто коли воно перескакує через білу фігуру 
+            потрібно було змінити canMove
+            public canMove(target: Cell){
+                if(!super.canMove(target)){
+                return false 
+                }   
+
+                const stepOne = this.cell.figure?.color === Color.BLACK ? 1 : -1
+                const stepTwo = this.cell.figure?.color === Color.BLACK ? 2 : -2
+
+                ці змінні для перевірки пустості створити перед всім 
+                const firstCell = this.cell.y + stepOne;
+                const secondCell = this.cell.y + stepTwo;
+
+                провіряти 1 клітинку 
+                const first = this.cell.board.getCell(firstCell, target.x).isEmpty();
+                const second = this.cell.board.getCell(secondCell, target.x);
+
+                і строго перевіряти біля подвійного ходу 
+                if((target.y === this.cell.y + stepOne || this.secondStep && ((target.y === this.cell.y + stepTwo) && first)) ми перевіряємо на наявність фігури на 1 кліку
+                && (target.x === this.cell.x)){
+                    тут не зовсім потрібно але для чорних було достатнього а для білих потрібно сильніше 
+                    if(target.figure && this.secondStep){                
+                        if (!first) {
+                            console.log(this.cell.board.getCell(firstCell, target.x).figure?.color);
+                            this.secondStep = false
+                            second.available = false
+                        }
+                        return false
+                    }
+
+                    if(target.figure){
+                        return false;
+                    }
+                    return true
+                }
+                if(target.y === this.cell.y + stepOne && target.figure && (target.x === this.cell.x + 1 || target.x === this.cell.x - 1)){
+                    return true
+                }
+                return false
+            }
+
+
+            також для того шоб ми не могли бити короля нам потрібно в методі загальному(абстрактоному)
+            сказвти шо target.figure?.figureName !== FigureName.KING цим ми запобіжимо удару короля 
+             
+
+
+    залишилося унеможливити короля ходити на ті клітинки які є під ударом 
+    і якшо фігура стоїть на шляху перед королем і чужою яка може задавати удар
+    то потрібно для цієї фігури зробити неможливий рух поки є король або чужа фігура  
+    динамічна зміна якшо пикрити корля для його можливості ходити і при видалених фігк
+
+
+    //////// примітка це для загального розвитку 
+    const cell = document.querySelector<HTMLElement>('.cell'); тобто для selectors ми пишемо тип HTMLElement бо це html елемент 
+    const whiteQueen = cell?.querySelector<HTMLElement>('.cell__block_white_queen');
+    const blackQueen = cell?.querySelector<HTMLElement>('.cell__block_black_queen');
+
+    if(target.color === Color.BLACK && blackQueen){ також робимо провірку на null 
+        cell?.removeChild(blackQueen) видаляємо дочірній appendChild - антонім   
+    }
+    if(target.color === Color.WHITE && whiteQueen){
+        cell?.removeChild(whiteQueen)
+    }   
+
+
+
+
+
+     залишилося унеможливити короля ходити на ті клітинки які є під ударом  
+     я придумав рішення схоже на ходи фігур це будуть позначки тобто як ходи тільки після оригінального ходу 
+     або після 2 кліку вони будуть змінюватися тоді коли фігура змінить своє розташування
+     можна сказати шо це динамічні блоки для короля хід наперід 
+     для білих і чорних фігур різні кольори і назви 
+     я створив boolean значення в cell для кожної фігури но перед 
+     в board є динамічний метод як для ходу тобто available тобто там ми в одному методі проходимося по кожній cell для available це по current cell 
+     приклад 
+
+     ми його викликаємо в BoardComponent через useEffect при коджній зміні clicked а в ношому випадку схоже но при зміні cell     
+     doRefreshFigures(targetClicked: Cell | null){
+        for (let i = 0; i < this.cells.length; i++) {
+            const row:Cell[] = this.cells[i];
+            for (let j = 0; j < row.length; j++) {
+                let cell = row[j];
+                    cell.available = !!targetClicked?.figure?.canMove(cell)  тобто це для cell яка по boolean значення буде доступна з методу canMove(дочірній і абстракт)    
+            }
+        }
+     }  
+     в нашому випадку ми також створили такий метод і передаємо в сигнатуру не clicked а cell 
+     і ми просто викликаємо метод canBlock для кожної фігури тобто таксамо буде абстрактний і дочірній метод canBlock но тут 
+     я використовував тільки для конкретних фігур приклад
+    
+     doRefreshFiguresCanBlok(target: Cell | null){
+        for (let i = 0; i < this.cells.length; i++) {
+            const row:Cell[] = this.cells[i];
+            for (let j = 0; j < row.length; j++) {
+                let cell = row[j];
+                target?.figure?.canBlock(cell) ми для фугури  після 2 кліку викликаємо метод в сигнатуру якого ми поміщаємо можливі ходи тобто для блоку 
+            }
+        }
+    } 
+
+    далі в Cell ми для кожної фігури створюємо booleanValue 
+    приклад
+
+    це в конструкторі для білого і чорного окремо 
+    токож можна було все огорнути в масиви але і так норм 
+
+    this.whiteQueen = false
+    this.blackQueen = false
+
+    this.whiteKing = false
+    this.blackKing = false
+
+    this.whiteRookLower = false
+    this.blackRookLower = false
+    this.whiteRookBigger = false
+    this.blackRookBigger = false
+
+    this.whiteBishopLower = false
+    this.blackBishopLower = false
+    this.whiteBishopBigger = false
+    this.blackBishopBigger = false
+
+    this.whiteKnightLower = false
+    this.whiteKnightBigger = false
+    this.blackKnightLower = false
+    this.blackKnightBigger = false
+
+    this.whitePawn = [false, false, false, false, false, false, false, false];
+    this.blackPawn = [false, false, false, false, false, false, false, false];
+
+
+    далі ми для кожної фізури додаємо в constructor до Color i Cell uniqId - це шоб відрізняти 2 білі і 2 чорні наприклад Bishop 
+
+
+    в App.css 2 класи для для білих фігур і чорних 
+
+    потім в cellComponent
+    ми робимо провірки true false цього значення і шоб небуло наїзду на власний колір  
+    приклад 
+
+            {cell.blackQueen && cell.figure?.color !== Color.BLACK && <div className='cell__block_black'></div>} 
+            {cell.whiteQueen && cell.figure?.color !== Color.WHITE && <div className='cell__block_white'></div>}
+
+            {cell.blackKing && cell.figure?.color !== Color.BLACK  && <div className='cell__block_black'></div>}
+            {cell.whiteKing && cell.figure?.color !== Color.WHITE && <div className='cell__block_white'></div>}
+
+            {cell.whiteBishopLower && cell.figure?.color !== Color.WHITE && <div className='cell__block_white'></div>}
+            {cell.blackBishopLower && cell.figure?.color !== Color.BLACK && <div className='cell__block_black'></div>}
+            {cell.whiteBishopBigger && cell.figure?.color !== Color.WHITE && <div className='cell__block_white'></div>}
+            {cell.blackBishopBigger && cell.figure?.color !== Color.BLACK && <div className='cell__block_black'></div>}
+
+            {cell.whiteRookLower && cell.figure?.color !== Color.WHITE && <div className='cell__block_white'></div>}
+            {cell.blackRookLower && cell.figure?.color !== Color.BLACK && <div className='cell__block_black'></div>}
+            {cell.whiteRookBigger && cell.figure?.color !== Color.WHITE && <div className='cell__block_white'></div>}
+            {cell.blackRookBigger && cell.figure?.color !== Color.BLACK && <div className='cell__block_black'></div>}
+
+            {cell.whiteKnightLower && cell.figure?.color !== Color.WHITE && <div className='cell__block_white'></div>}
+            {cell.whiteKnightBigger && cell.figure?.color !== Color.WHITE && <div className='cell__block_white'></div>}
+            {cell.blackKnightLower && cell.figure?.color !== Color.BLACK && <div className='cell__block_black'></div>}
+            {cell.blackKnightBigger && cell.figure?.color !== Color.BLACK && <div className='cell__block_black'></div>}
+
+            тут провіряємо кожен pawn 
+            {
+                cell.whitePawn.map((pawnWhite, idx) => (
+                    pawnWhite && <div key={idx}  className='cell__block_white'></div> 
+                ))}
+                {cell.blackPawn.map((pawnBlack, idx) => (
+                    pawnBlack && <div key={idx} className='cell__block_black'></div> 
+                ))
+            }  
+
+            далі створення самих методів для роботи 
+            ну для діагоналі вкертикалі і горизонталі такі самі як для ходів тільки є 1 відмінність 
+            тобто якшо король всередині і ми робимо шаг зявляється наші обмеження то вони повинні 
+            не зупинятися а проходити через короля 
+            для того шоб він не міг піти далі по цій траекторії бо блок буде зупинятися на фігурі з протилежним кольором
+            приклади 
+            для дігоналлі 
+            для білих фігур
+
+            moveDiagonalKingDisabledWhite(target: Cell){ передаємо traget можливий хід 
+            const dx = Math.abs(target.x - this.x);
+            const dy = Math.abs(target.y - this.y);
+
+            const directionX = this.x < target.x ? 1 : -1;    
+            const directionY = this.y < target.y ? 1 : -1;
+
+            if(dx !== dy){
+                return false;
+            }
+            for (let i = 1; i <= dy; i++) {
+                if(!this.board.getCell(this.y + (i * directionY), this.x + (i * directionX)).isEmpty()){
+                    if(this.board.getCell(this.y + (i * directionY), this.x + (i * directionX)).figure?.figureName !== FigureName.KING){
+                    якшо недорівнює королю то все false (зупиняється) 
+                        return false
+                    }
+                }
+            }
+            return true;
+        }  
+
+        так само для вертикалі і горизонталі 
+        moveHorizontalKingDisabledWhite(target: Cell){
+            if(target.y !== this.y){
+                return false
+            }
+
+            const max = Math.max(target.x, this.x);
+            const min = Math.min(target.x, this.x);
+
+            for(let i = min + 1; i < max; i++){
+                if(!this.board.getCell(this.y, i).isEmpty()){
+                    if(this.board.getCell(this.y, i).figure?.figureName !== FigureName.KING){ 
+                        return false  
+                    }
+                }
+            }
+            return true
+        }
+        ми з кожного цього методу повертаємо true false
+        ми ці методи використовуємо в canBlock 
+
+        для Queen Bishop i Rook 
+
+        це для Queen 
+        ми перевіряємо колір фігури клітинки на яку ми клікнули 1 раз 
+        public canBlock(target: Cell){
+        if(this.cell.figure?.color === Color.WHITE){ якшо фігура білого кольору а король чорного  
+            if(this.cell.moveDiagonalKingDisabledWhite(target)){
+                target.whiteQueen = true для діаганалі королеви і так для кожного 
+                return true обовязково для кожного бо вони складаються з 3 ходів 
+            }
+            if(this.cell.moveHorizontalKingDisabledWhite(target)){
+                target.whiteQueen = true
+                return true
+            }
+            if(this.cell.moveVerticalKingDisabledWhite(target)){  
+                target.whiteQueen = true
+                return true
+            }
+            target.whiteQueen = false після коли фігура змінює позицію ставимо значення false
+            return false
+        }
+
+        if(this.cell.figure?.color === Color.BLACK){ 
+            if(this.cell.moveDiagonalKingDisabledBlack(target)){
+                target.blackQueen = true
+                return true
+            }
+            if(this.cell.moveHorizontalKingDisabledBlack(target)){
+                target.blackQueen = true
+                return true
+            }
+            if(this.cell.moveVerticalKingDisabledBlack(target)){  
+                target.blackQueen = true
+                return true
+            }
+            target.blackQueen = false
+            return false
+        }
+    }
+    ми так робимо для кожної фігури тобто BISHOP QUEEN ROOK
+    але оскільки офіцер і тура є для свого кольору є не одні як королева 
+    ми в них викорисоовуємо uniqId яке я додав для фігур кожне різне
+    приклад на офіцері 
+
+    
+     public canBlock(target: Cell){
+            if(this.cell.figure?.color === Color.WHITE){ також перевіряємо колір клікнутої фігури 
+                if(this.uniqValue === 9999){ її id бо ми в насліднику класу фігур перевіряємо його id  
+                    if(this.cell.moveDiagonalKingDisabledWhite(target)){ і в метод даємо target
+                        target.whiteBishopLower = true
+                        return true
+                    }
+                }
+                if(this.uniqValue === 1000){
+                    if(this.cell.moveDiagonalKingDisabledWhite(target)){
+                        target.whiteBishopBigger = true
+                        return true
+                    }
+                }
+                if(this.cell.figure?.uniqValue === 9999){ а коли 1 клік === тому самому id шо і для target то пропаде попереднє
+                    target.whiteBishopLower = false      
+                }
+                if(this.cell.figure?.uniqValue === 1000){
+                    target.whiteBishopBigger = false      
+                }
+            }
+    
+            if(this.cell.figure?.color === Color.BLACK){ 
+                if(this.uniqValue === 1100){
+                    if(this.cell.moveDiagonalKingDisabledBlack(target)){
+                        target.blackBishopLower = true
+                        return true
+                    }
+                }
+                if(this.uniqValue === 1200){
+                    if(this.cell.moveDiagonalKingDisabledBlack(target)){
+                        target.blackBishopBigger = true
+                        return true
+                    }
+                }
+                if(this.cell.figure?.uniqValue === 1100){
+                    target.blackBishopLower = false      
+                }
+                if(this.cell.figure?.uniqValue === 1200){
+                    target.blackBishopBigger = false      
+                }
+            }
+        }
+
+    для коня так само тільки для кожного його можливі ходи 
+
+            const dx = Math.abs(target.x - this.cell.x);
+            const dy = Math.abs(target.y - this.cell.y);
+            
+            
+            if(this.cell.figure?.color === Color.WHITE){
+                    if(((dx === 1 && dy === 2) || (dx === 2 && dy === 1))){ по dx dy коня
+                        if(this.cell.figure?.uniqValue === 1111){
+                            target.whiteKnightLower = true
+                            return true
+                        }
+                        if(this.cell.figure?.uniqValue === 2222){
+                            target.whiteKnightBigger = true
+                            return true
+                        }
+                    }
+                    if(this.cell.figure?.uniqValue === 1111){ і так само очищаємо після 1 кліку але тільки тоді коли відбудеться 2 
+                        target.whiteKnightLower = false      
+                    }
+                    if(this.cell.figure?.uniqValue === 2222){
+                        target.whiteKnightBigger = false      
+                    }
+            }
+            if(this.cell.figure?.color === Color.BLACK){
+                if(((dx === 1 && dy === 2) || (dx === 2 && dy === 1))){
+                    if(this.cell.figure?.uniqValue === 3333){
+                        target.blackKnightLower = true
+                        return true
+                    }
+                    if(this.cell.figure?.uniqValue === 4444){
+                        target.blackKnightBigger = true
+                        return true
+                    }
+                }
+                if(this.cell.figure?.uniqValue === 3333){
+                    target.blackKnightLower = false      
+                }
+                if(this.cell.figure?.uniqValue === 4444){
+                    target.blackKnightBigger = false      
+                }
+            }
+
+
+для пішака ми використовуємо стандартний удар всторону тобто 
+        y + 1 і x - 1 або x + 1
+
+        if(this.cell.figure?.color === Color.WHITE){
+            const stepOne = this.cell.figure?.color === Color.WHITE ? -1 : 1 залежить від кольору
+            if(target.y === this.cell.y + stepOne && (target.x === this.cell.x + 1 || target.x === this.cell.x - 1)){ провірка 
+                if(this.uniqValue === this.cell.figure.uniqValue){
+                    target.whitePawn[this.uniqValue!] = true те саме тільки з масивом 
+                    return true
+                }
+            }
+            target.whitePawn[this.uniqValue!] = false
+        }
+        if(this.cell.figure?.color === Color.BLACK){
+            const stepOne = this.cell.figure?.color === Color.BLACK ? 1 : -1
+            if(target.y === this.cell.y + stepOne && (target.x === this.cell.x + 1 || target.x === this.cell.x - 1)){
+                    if(this.uniqValue === this.cell.figure.uniqValue){                        
+                        target.blackPawn[this.uniqValue!] = true
+                        return true
+                    }
+            }
+            target.blackPawn[this.uniqValue!] = false
+        }
+
+
